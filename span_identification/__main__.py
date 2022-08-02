@@ -1,3 +1,4 @@
+MODEL_CLASSES = ["bert", "roberta", "distilbert", "camembert"]
 try:
     from .ner import transformers_ner_crf, transformers_ner
     from .dataset import load_data, get_train_dev_files, get_test_file, create_subfolder
@@ -6,14 +7,13 @@ except:
     from ner import transformers_ner_crf, transformers_ner
     from dataset import load_data, get_train_dev_files, get_test_file, create_subfolder
     from submission import get_submission_format
-    
+
 import configargparse
 import spacy
 import logging
 import os
 import subprocess
 import tempfile
-
 
 logger = logging.getLogger(__name__)
 
@@ -22,33 +22,34 @@ def Main(args):
     nlp = spacy.load("en")
     if not os.path.exists(args.data_dir):
         os.makedirs(args.data_dir)
-    
+
     if args.do_train or args.do_eval or args.split_dataset:
-        articles_content, articles_id, propaganda_techniques_names = load_data(args.train_data_folder, 
-                                                                           args.propaganda_techniques_file)
+        articles_content, articles_id, propaganda_techniques_names = load_data(args.train_data_folder,
+                                                                               args.propaganda_techniques_file)
         train_file_path = os.path.join(args.data_dir, args.train_file)
         dev_file_path = os.path.join(args.data_dir, args.dev_file)
         if not os.path.exists(train_file_path) or not os.path.exists(dev_file_path) or args.overwrite_cache:
             logger.info("Creating 'ner' train/dev files: %s, %s", train_file_path, dev_file_path)
-            train_ids, dev_ids = get_train_dev_files(articles_id, articles_content, nlp, args.labels_path, train_file_path,
+            train_ids, dev_ids = get_train_dev_files(articles_id, articles_content, nlp, args.labels_path,
+                                                     train_file_path,
                                                      dev_file_path, args.split_by_ids, args.dev_size, args.random_state)
             if args.split_dataset:
-                create_subfolder(os.path.join(args.data_dir, 'train-train-articles'),  args.train_data_folder, train_ids)
-                create_subfolder(os.path.join(args.data_dir, 'train-dev-articles'),  args.train_data_folder, dev_ids)
-    
+                create_subfolder(os.path.join(args.data_dir, 'train-train-articles'), args.train_data_folder, train_ids)
+                create_subfolder(os.path.join(args.data_dir, 'train-dev-articles'), args.train_data_folder, dev_ids)
+
     if args.do_predict or args.create_submission_file or args.do_eval_spans:
         test_articles_content, test_articles_id, _ = load_data(args.test_data_folder, args.propaganda_techniques_file)
         test_file_path = os.path.join(args.data_dir, args.test_file)
         if (not os.path.exists(test_file_path) or args.overwrite_cache) and not args.do_eval_spans:
             logger.info("Creating 'ner' test file: %s", test_file_path)
-            get_test_file(test_file_path, test_articles_id, test_articles_content, nlp)            
-    
+            get_test_file(test_file_path, test_articles_id, test_articles_content, nlp)
+
     if args.do_train or args.do_eval or args.do_predict:
         if args.use_crf:
             transformers_ner_crf(args)
         else:
             transformers_ner(args)
-            
+
     if args.do_eval_spans:
         logger.info("Evaluating file %s with competition metrics", args.output_file)
         output_file = os.path.join('results', args.output_file)
@@ -62,7 +63,7 @@ def Main(args):
         subprocess.run(cmd, shell=True)
         if args.gold_annot_file is None:
             os.remove(gold_annot_file)
-    
+
     if args.create_submission_file:
         if not os.path.exists('results'):
             os.makedirs('results')
@@ -71,9 +72,9 @@ def Main(args):
         get_submission_format(args.predicted_labels_files, test_articles_id, test_articles_content, nlp, output_file)
 
 
-def main(): 
+def main():
     parser = configargparse.ArgumentParser()
-    
+
     parser.add_argument('--config', required=True, is_config_file=True, help='Config file path.')
     parser.add_argument("--train_data_folder", default=None, type=str, required=True,
                         help="Source directory with the train articles.")
@@ -96,21 +97,20 @@ def main():
     parser.add_argument("--output_file", default=None, type=str, required=True,
                         help="The submission filename")
     parser.add_argument("--dev_size", default=0.3, type=float, help="Dev data size.")
-    parser.add_argument("--split_dataset", action="store_true", 
+    parser.add_argument("--split_dataset", action="store_true",
                         help="Split the dataset into the train/dev parts")
-    parser.add_argument("--split_by_ids", action="store_true", 
+    parser.add_argument("--split_by_ids", action="store_true",
                         help="Use articles ids while splitting the dataset into the train/dev parts.")
-    parser.add_argument("--create_submission_file", action="store_true", 
+    parser.add_argument("--create_submission_file", action="store_true",
                         help="Creats file in the submission (source) format")
     parser.add_argument("--random_state", default=42, type=int, help='Random state for the dataset splitting.')
-    parser.add_argument("--do_eval_spans", action="store_true", 
+    parser.add_argument("--do_eval_spans", action="store_true",
                         help="Whether to run eval on the dev set with the competition metrics.")
     parser.add_argument("--gold_annot_file", default=None, type=str, help="Gold annotation file.")
 
     parser.add_argument("--use_crf", action="store_true", help="Use Conditional Random Field over the model")
     parser.add_argument("--use_quotes", action="store_true")
-    
-    MODEL_CLASSES = ["bert", "roberta", "distilbert", "camembert"]
+
     parser.add_argument("--model_type", default=None, type=str, required=True,
                         help="Model type selected in the list: " + ", ".join(MODEL_CLASSES))
     parser.add_argument("--model_name_or_path", default=None, type=str, required=True,
@@ -186,13 +186,13 @@ def main():
     parser.add_argument("--server_ip", type=str, default="", help="For distant debugging.")
     parser.add_argument("--server_port", type=str, default="", help="For distant debugging.")
     args = parser.parse_args()
-    
+
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
                         datefmt="%m/%d/%Y %H:%M:%S",
                         level=logging.INFO if args.local_rank in [-1, 0] else logging.WARN)
-    
+
     Main(args)
-    
-    
+
+
 if __name__ == "__main__":
     main()

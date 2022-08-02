@@ -90,7 +90,8 @@ def train(args, train_dataset, model, tokenizer, labels, pad_token_label_id):
         {"params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], "weight_decay": 0.0}
     ]
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
-    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total)
+    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps,
+                                                num_training_steps=t_total)
     if args.fp16:
         try:
             from apex import amp
@@ -125,7 +126,8 @@ def train(args, train_dataset, model, tokenizer, labels, pad_token_label_id):
     train_iterator = trange(int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0])
     set_seed(args)  # Added here for reproductibility (even between python 2 and 3)
     for _ in train_iterator:
-        epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0], position=0, leave=True)
+        epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0], position=0,
+                              leave=True)
         for step, batch in enumerate(epoch_iterator):
             model.train()
             batch = tuple(t.to(args.device) for t in batch)
@@ -133,7 +135,8 @@ def train(args, train_dataset, model, tokenizer, labels, pad_token_label_id):
                       "attention_mask": batch[1],
                       "labels": batch[3]}
             if args.model_type != "distilbert":
-                inputs["token_type_ids"] = batch[2] if args.model_type in ["bert", "xlnet"] else None  # XLM and RoBERTa don"t use segment_ids
+                inputs["token_type_ids"] = batch[2] if args.model_type in ["bert",
+                                                                           "xlnet"] else None  # XLM and RoBERTa don"t use segment_ids
 
             outputs = model(**inputs)
             loss = outputs[0]  # model outputs are always tuple in pytorch-transformers (see doc)
@@ -176,7 +179,8 @@ def train(args, train_dataset, model, tokenizer, labels, pad_token_label_id):
                     output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(global_step))
                     if not os.path.exists(output_dir):
                         os.makedirs(output_dir)
-                    model_to_save = model.module if hasattr(model, "module") else model  # Take care of distributed/parallel training
+                    model_to_save = model.module if hasattr(model,
+                                                            "module") else model  # Take care of distributed/parallel training
                     # model_to_save.save_pretrained(output_dir)
                     model_save_path_ = os.path.join(output_dir, "pytorch_model.bin")
                     torch.save(model_to_save.state_dict(), model_save_path_)
@@ -225,7 +229,8 @@ def evaluate(args, model, tokenizer, labels, pad_token_label_id, mode, prefix=""
                       "attention_mask": batch[1],
                       "labels": batch[3]}
             if args.model_type != "distilbert":
-                inputs["token_type_ids"] = batch[2] if args.model_type in ["bert", "xlnet"] else None  # XLM and RoBERTa don"t use segment_ids
+                inputs["token_type_ids"] = batch[2] if args.model_type in ["bert",
+                                                                           "xlnet"] else None  # XLM and RoBERTa don"t use segment_ids
             outputs = model(**inputs)
             tmp_eval_loss, logits, predicted_tags = outputs
 
@@ -235,17 +240,17 @@ def evaluate(args, model, tokenizer, labels, pad_token_label_id, mode, prefix=""
             eval_loss += tmp_eval_loss.item()
         nb_eval_steps += 1
         if preds is None:
-            #preds = logits.detach().cpu().numpy()
+            # preds = logits.detach().cpu().numpy()
             preds = predicted_tags
             out_label_ids = inputs["labels"].detach().cpu().numpy()
         else:
-            #preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
+            # preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
             preds.extend(predicted_tags)
             out_label_ids = np.append(out_label_ids, inputs["labels"].detach().cpu().numpy(), axis=0)
 
     eval_loss = eval_loss / nb_eval_steps
-    #preds_logits = softmax(preds, axis=2)
-    #preds = np.argmax(preds, axis=2)
+    # preds_logits = softmax(preds, axis=2)
+    # preds = np.argmax(preds, axis=2)
 
     label_map = {i: label for i, label in enumerate(labels)}
 
@@ -257,7 +262,7 @@ def evaluate(args, model, tokenizer, labels, pad_token_label_id, mode, prefix=""
             if out_label_ids[i, j] != pad_token_label_id:
                 out_label_list[i].append(label_map[out_label_ids[i][j]])
                 preds_list[i].append(label_map[preds[i][j]])
-    
+
     results = {
         "loss": eval_loss,
         "precision": precision_score(out_label_list, preds_list),
@@ -279,8 +284,10 @@ def load_and_cache_examples(args, tokenizer, labels, pad_token_label_id, mode):
 
     # Load data features from cache or dataset file
     cached_features_file = os.path.join(args.data_dir, "cached_{}_{}_{}".format(mode,
-        list(filter(None, args.model_name_or_path.split("/"))).pop(),
-        str(args.max_seq_length)))
+                                                                                list(filter(None,
+                                                                                            args.model_name_or_path.split(
+                                                                                                "/"))).pop(),
+                                                                                str(args.max_seq_length)))
     if False and os.path.exists(cached_features_file) and not args.overwrite_cache:
         logger.info("Loading features from cached file %s", cached_features_file)
         features = torch.load(cached_features_file)
@@ -373,11 +380,11 @@ def transformers_ner_crf(args):
     tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name if args.tokenizer_name else args.model_name_or_path,
                                                 do_lower_case=args.do_lower_case,
                                                 cache_dir=args.cache_dir if args.cache_dir else None)
-    
+
     bert_model = model_class.from_pretrained(args.model_name_or_path,
-                                        from_tf=bool(".ckpt" in args.model_name_or_path),
-                                        config=config,
-                                        cache_dir=args.cache_dir if args.cache_dir else None)
+                                             from_tf=bool(".ckpt" in args.model_name_or_path),
+                                             config=config,
+                                             cache_dir=args.cache_dir if args.cache_dir else None)
     if not hasattr(config, "hidden_dropout_prob"):
         config.hidden_dropout_prob = config.dropout
     model = BertLstmCrf(
@@ -413,8 +420,9 @@ def transformers_ner_crf(args):
         logger.info("Saving model checkpoint to %s", args.output_dir)
         # Save a trained model, configuration and tokenizer using `save_pretrained()`.
         # They can then be reloaded using `from_pretrained()`
-        model_to_save = model.module if hasattr(model, "module") else model  # Take care of distributed/parallel training
-        #model_to_save.save_pretrained(args.output_dir)
+        model_to_save = model.module if hasattr(model,
+                                                "module") else model  # Take care of distributed/parallel training
+        # model_to_save.save_pretrained(args.output_dir)
         model_save_path_ = os.path.join(args.output_dir, "pytorch_model.bin")
         torch.save(model_to_save.state_dict(), model_save_path_)
         tokenizer.save_pretrained(args.output_dir)
@@ -426,16 +434,17 @@ def transformers_ner_crf(args):
     results = {}
     if args.do_eval and args.local_rank in [-1, 0]:
         tokenizer = tokenizer_class.from_pretrained(args.output_dir, do_lower_case=args.do_lower_case)
-        #checkpoints = [args.output_dir]
+        # checkpoints = [args.output_dir]
         output_dir_ = os.path.join(args.output_dir, WEIGHTS_NAME)
         checkpoints = [output_dir_]
         if args.eval_all_checkpoints:
-            checkpoints = list(os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + "/**/" + WEIGHTS_NAME, recursive=True)))
+            checkpoints = list(
+                os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + "/**/" + WEIGHTS_NAME, recursive=True)))
             logging.getLogger("pytorch_transformers.modeling_utils").setLevel(logging.WARN)  # Reduce logging
         logger.info("Evaluate the following checkpoints: %s", checkpoints)
         for checkpoint in checkpoints:
             global_step = checkpoint.split("-")[-1] if len(checkpoints) > 1 else ""
-            
+
             model = BertLstmCrf(
                 bert_model,
                 num_labels=num_labels,
@@ -450,7 +459,7 @@ def transformers_ner_crf(args):
                 checkpoint += "/pytorch_model.bin"
             state_dict = torch.load(checkpoint)
             model.load_state_dict(state_dict)
-            
+
             # model = model_class.from_pretrained(checkpoint)
             model.to(args.device)
             result, _ = evaluate(args, model, tokenizer, labels, pad_token_label_id, mode="dev", prefix=global_step)
@@ -466,7 +475,8 @@ def transformers_ner_crf(args):
         tokenizer = tokenizer_class.from_pretrained(args.output_dir, do_lower_case=args.do_lower_case)
         checkpoints = [args.output_dir]
         if args.eval_all_checkpoints:
-            checkpoints = list(os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + "/**/" + WEIGHTS_NAME, recursive=True)))
+            checkpoints = list(
+                os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + "/**/" + WEIGHTS_NAME, recursive=True)))
             logging.getLogger("pytorch_transformers.modeling_utils").setLevel(logging.WARN)  # Reduce logging
         logger.info("Evaluate the following checkpoints: %s", checkpoints)
         for checkp in checkpoints:
@@ -481,21 +491,21 @@ def transformers_ner_crf(args):
                 use_cuda=True
             )
             checkpoint = os.path.join(checkp, WEIGHTS_NAME)
-            state_dict = torch.load(checkpoint)
+            state_dict = torch.load(checkpoint, map_location=torch.device('cpu'))
             model.load_state_dict(state_dict)
 
             model.to(args.device)
             result, predictions = evaluate(args, model, tokenizer, labels, pad_token_label_id, mode="test")
 
             # Save results
-            output_test_results_file = os.path.join(checkp, "test_results.txt")
+            output_test_results_file = os.path.join(checkp, "test_results_russian_docstart.txt")
             with open(output_test_results_file, "w") as writer:
                 for key in sorted(result.keys()):
                     writer.write("{} = {}\n".format(key, str(result[key])))
             # Save predictions
             output_test_predictions_file = os.path.join(checkp, "test_predictions.txt")
-            with open(output_test_predictions_file, "w") as writer:
-                with open(os.path.join(args.data_dir, args.test_file), "r") as f:
+            with open(output_test_predictions_file, "w", encoding='utf-8') as writer:
+                with open(os.path.join(args.data_dir, args.test_file), "r", encoding="utf-8") as f:
                     example_id = 0
                     for line in f:
                         if line.startswith("-DOCSTART-") or line == "" or line == "\n":
@@ -509,4 +519,3 @@ def transformers_ner_crf(args):
                             logger.warning("Maximum sequence length exceeded: No prediction for '%s'.", line.split()[0])
 
     return results
-

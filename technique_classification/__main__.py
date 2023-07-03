@@ -1,10 +1,10 @@
 try:
     from .transformers_classifier import transformers_clf
-    from .dataset import load_data, get_train_dev_files, get_test_file
+    from .dataset import load_data, get_train_dev_files, get_test_file, load_data_from_si_predictions
     from .submission import create_submission_file, eval_submission
 except:
     from transformers_classifier import transformers_clf
-    from dataset import load_data, get_train_dev_files, get_test_file
+    from dataset import load_data, get_train_dev_files, get_test_file, load_data_from_si_predictions
     from submission import create_submission_file, eval_submission
     
 import configargparse
@@ -32,9 +32,9 @@ def Main(args):
                                 args.shuffle)
     
     if args.do_predict or args.create_submission_file or args.eval_submission:
+        # HERE
         test_file_path = os.path.join(args.data_dir, args.test_file)
-        test_articles, test_articles_id, test_span_starts, test_span_ends, test_labels = load_data(args.test_data_folder,
-                                                                                      args.test_template_labels_path)
+        test_articles, test_articles_id, test_span_starts, test_span_ends, test_labels = load_data_from_si_predictions()
         if not os.path.exists(test_file_path) or args.overwrite_cache:
             logger.info("Creating roberta-type test file: %s", test_file_path)
             get_test_file(test_articles, test_articles_id, test_span_starts, test_span_ends, test_labels, test_file_path)

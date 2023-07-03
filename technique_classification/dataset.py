@@ -6,6 +6,8 @@ import pandas as pd
 from nltk.tokenize.punkt import PunktSentenceTokenizer
 from sklearn.model_selection import train_test_split
 
+from span_identification.playground import predictions_to_span
+
 
 def read_articles_from_file_list(folder_name, file_pattern="*.txt"):
     file_list = glob.glob(os.path.join(folder_name, file_pattern))
@@ -36,6 +38,23 @@ def load_data(data_folder, labels_file):
     return articles, ref_articles_id, ref_span_starts, ref_span_ends, labels
 
 
+def load_data_from_si_predictions(data_path=''):
+    all_articles, _, all_spans_indexes = predictions_to_span(path=r'D:\dev\code\jaifp\semeval2020_task11\models\si_roberta_crf\russia\test_predictions_25k_ukraine.txt')
+    texts = {str(k): " ".join(t) for k, t in enumerate(all_articles)}
+
+    ref_articles_id = []
+    ref_span_starts = []
+    ref_span_ends = []
+    for k, spans_indexes in enumerate(all_spans_indexes):
+        if len(spans_indexes) > 0:
+            for start, end in spans_indexes:
+                ref_articles_id.append(str(k))
+                ref_span_starts.append(str(start))
+                ref_span_ends.append(str(end))
+
+    articles_with_spans = {str(k): texts[k] for k in set(ref_articles_id)}
+
+    return articles_with_spans, ref_articles_id, ref_span_starts, ref_span_ends, '?'*len(ref_span_starts)
 def sents_token_bounds(text):
     sents_starts = []
     for start, end in PunktSentenceTokenizer().span_tokenize(text):
